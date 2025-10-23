@@ -1,6 +1,6 @@
 Device like a meshtastic but using NRF24 modules.
 
-Pinout:
+Pinout:</br>
 nRF24L01    ESP32 </br>
 VCC    ->   3.3V</br>
 GND    ->   GND</br>
