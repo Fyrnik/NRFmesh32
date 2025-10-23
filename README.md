@@ -1,7 +1,7 @@
 Device like a meshtastic but using NRF24 modules.
 
 Pinout:
-nRF24L01    ESP32
+nRF24L01    ESP32 </br>
 VCC    ->   3.3V
 GND    ->   GND
 CE     ->   GPIO4
