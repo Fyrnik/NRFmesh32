@@ -6,12 +6,11 @@
 #include <ArduinoJson.h>
 #include <EEPROM.h>
 
-// Пины для nRF24L01
+// nrf24 pins
 RF24 radio(4, 5); // CE, CSN
 
-// Структура для хранения настроек с сигнатурой
 struct Settings {
-  uint32_t signature;  // Сигнатура для проверки валидности данных
+  uint32_t signature;
   char deviceName[16];
   uint8_t channel;
   uint8_t powerLevel;
@@ -21,10 +20,9 @@ struct Settings {
   char apPassword[32];
 };
 
-// Сигнатура для проверки валидности EEPROM
 #define SETTINGS_SIGNATURE 0xDEADBEEF
 
-// Настройки по умолчанию
+//default settings
 const Settings defaultSettings = {
   SETTINGS_SIGNATURE,
   "ESP32-Mesh",
@@ -38,7 +36,6 @@ const Settings defaultSettings = {
 
 Settings settings;
 
-// Структура для сообщения
 struct MeshMessage {
   uint32_t fromId;
   char fromName[16];
@@ -50,10 +47,8 @@ struct MeshMessage {
   uint32_t timestamp;
 };
 
-// Веб-сервер
 WebServer server(80);
 
-// Хранилище для сообщений и узлов
 struct StoredMessage {
   MeshMessage msg;
   uint32_t receivedTime;
@@ -72,13 +67,10 @@ NodeInfo nodes[20];
 int messageCount = 0;
 int nodeCount = 0;
 
-// Адреса для nRF24L01
 const uint64_t addresses[5] = {0xABCDABCD71LL, 0xABCDABCD72LL, 0xABCDABCD73LL, 0xABCDABCD74LL, 0xABCDABCD75LL};
 
-// Светодиод
 const int ledPin = 2;
 
-// Переменные состояния
 uint32_t lastPingTime = 0;
 uint32_t myNodeId;
 uint32_t lastMessageId = 0;
@@ -86,7 +78,6 @@ uint32_t messagesSent = 0;
 uint32_t messagesReceived = 0;
 uint32_t startupTime = 0;
 
-// Объявления функций
 void handlePingMessage(MeshMessage &msg);
 void handleAckMessage(MeshMessage &msg);
 void handleNodeInfo(MeshMessage &msg);
@@ -100,18 +91,14 @@ void setup() {
   
   Serial.println("=== Starting Mesh Node ===");
   
-  // Генерируем ID устройства
   myNodeId = generateNodeId();
   
-  // Настройка пинов
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, HIGH);
   
-  // Инициализация EEPROM и загрузка настроек
   EEPROM.begin(512);
   loadSettings();
   
-  // Вывод загруженных настроек для отладки
   Serial.println("Loaded settings:");
   Serial.print("Device: "); Serial.println(settings.deviceName);
   Serial.print("AP SSID: "); Serial.println(settings.apSsid);
@@ -119,13 +106,10 @@ void setup() {
   Serial.print("Channel: "); Serial.println(settings.channel);
   Serial.print("Network ID: "); Serial.println(settings.networkId);
   
-  // Запуск точки доступа
   startAccessPoint();
   
-  // Инициализация радио
   initRadio();
   
-  // Настройка веб-сервера
   setupWebServer();
   
   startupTime = millis();
@@ -139,24 +123,19 @@ void setup() {
 void loadSettings() {
   Serial.println("Loading settings from EEPROM...");
   
-  // Читаем настройки из EEPROM
   EEPROM.get(0, settings);
   
-  // Проверяем сигнатуру
   if (settings.signature != SETTINGS_SIGNATURE) {
     Serial.println("Invalid signature, loading default settings");
     
-    // Загружаем настройки по умолчанию
     memcpy(&settings, &defaultSettings, sizeof(Settings));
     
-    // Сохраняем настройки по умолчанию в EEPROM
     saveSettings();
     Serial.println("Default settings saved to EEPROM");
   } else {
     Serial.println("Settings loaded successfully from EEPROM");
   }
   
-  // Дополнительные проверки целостности данных
   if (strlen(settings.deviceName) == 0) {
     strncpy(settings.deviceName, defaultSettings.deviceName, 16);
   }
@@ -175,13 +154,10 @@ void loadSettings() {
 }
 
 void saveSettings() {
-  // Убедимся, что сигнатура установлена
   settings.signature = SETTINGS_SIGNATURE;
   
-  // Записываем в EEPROM
   EEPROM.put(0, settings);
   
-  // Фиксируем изменения
   if (EEPROM.commit()) {
     Serial.println("Settings saved to EEPROM successfully");
   } else {
@@ -192,14 +168,11 @@ void saveSettings() {
 void startAccessPoint() {
   Serial.println("Starting Access Point...");
   
-  // Отключаем сохранение настроек WiFi
   WiFi.persistent(false);
   
-  // Останавливаем любые предыдущие соединения
   WiFi.disconnect(true);
   delay(100);
   
-  // Запускаем точку доступа
   Serial.print("Setting up AP with SSID: ");
   Serial.println(settings.apSsid);
   Serial.print("Password: ");
@@ -211,15 +184,13 @@ void startAccessPoint() {
     Serial.println("Failed to start Access Point with configured settings!");
     Serial.println("Trying fallback settings...");
     
-    // Пробуем альтернативный SSID без пароля
     String fallbackSSID = "MeshNode-" + String(myNodeId, HEX);
     apStarted = WiFi.softAP(fallbackSSID.c_str(), NULL);
     
     if (apStarted) {
       Serial.println("Fallback AP started successfully");
-      // Обновляем настройки
       strncpy(settings.apSsid, fallbackSSID.c_str(), 32);
-      settings.apPassword[0] = '\0'; // Без пароля
+      settings.apPassword[0] = '\0';
       saveSettings();
     } else {
       Serial.println("CRITICAL: Failed to start Access Point!");
@@ -244,8 +215,6 @@ void initRadio() {
   radio.setDataRate(RF24_2MBPS);
   radio.setRetries(3, 5);
   radio.enableDynamicPayloads();
-  
-  // Открываем пайп для приема
   radio.openReadingPipe(1, addresses[settings.channel % 5]);
   radio.startListening();
   
@@ -405,7 +374,6 @@ void rebroadcastMessage(MeshMessage &msg) {
 }
 
 uint32_t generateNodeId() {
-  // Простой способ генерации ID на основе MAC адреса
   uint64_t mac = ESP.getEfuseMac();
   uint32_t id = (uint32_t)(mac >> 24);
   return id;
@@ -413,7 +381,7 @@ uint32_t generateNodeId() {
 
 void cleanupNodes() {
   for (int i = 0; i < nodeCount; i++) {
-    if (millis() - nodes[i].lastSeen > 120000) { // 2 минуты
+    if (millis() - nodes[i].lastSeen > 120000) { 
       Serial.println("Node timeout: " + String(nodes[i].nodeName));
       for (int j = i; j < nodeCount - 1; j++) {
         nodes[j] = nodes[j + 1];
@@ -424,7 +392,6 @@ void cleanupNodes() {
   }
 }
 
-// Веб-интерфейс
 void setupWebServer() {
   server.on("/", HTTP_GET, handleRoot);
   server.on("/send", HTTP_POST, handleSend);
@@ -458,7 +425,7 @@ void handleRoot() {
 <body>
     <div class="container">
         <div class="header">
-            <h1>🌐 Mesh Network</h1>
+            <h1>Mesh Network</h1>
             <div class="ap-info">
                 <strong>Access Point:</strong> )rawliteral" + String(settings.apSsid) + R"rawliteral(<br>
                 <strong>IP:</strong> )rawliteral" + WiFi.softAPIP().toString() + R"rawliteral(<br>
@@ -671,7 +638,6 @@ void handleSaveSettings() {
   
   server.send(200, "application/json", "{\"status\":\"saved\"}");
   
-  // Перезапускаем AP с новыми настройками
   delay(1000);
   startAccessPoint();
 }
@@ -708,7 +674,6 @@ void loop() {
   
   cleanupNodes();
   
-  // Мигание светодиодом
   static unsigned long lastBlink = 0;
   if (millis() - lastBlink > 1000) {
     digitalWrite(ledPin, !digitalRead(ledPin));
