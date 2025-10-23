@@ -11,6 +11,7 @@ MOSI   ->   GPIO23</br>
 MISO   ->   GPIO19</br>
 
 You can use 2G4M27D module instad of nRF24L01.
+2G4M27D module can handle voltage up to 5.5v, and transmit up to 500mW 
 
 To use the device:
 1. Upload the sketch to esp32
